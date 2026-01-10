@@ -125,8 +125,18 @@ echo "Log Groups: Variable cost based on ingestion and storage"
 echo ""
 echo "Log Groups by Data Volume (Top 20):"
 echo "===================================="
-echo "Log Group Name                                    | Size (MB)  | Est. Monthly Cost"
-echo "--------------------------------------------------|------------|------------------"
+
+# Find longest log group name for formatting
+MAX_LOG_LENGTH=$(aws logs describe-log-groups --region $REGION $PROFILE --query 'logGroups[*].logGroupName' --output text | tr '\t' '\n' | awk '{if(length > max) max = length} END {print max+5}')
+
+if [ -z "$MAX_LOG_LENGTH" ] || [ "$MAX_LOG_LENGTH" -lt 30 ]; then
+    MAX_LOG_LENGTH=50
+fi
+
+# Create table header
+printf "+%*s+------------+------------------+\n" $MAX_LOG_LENGTH | tr ' ' '-'
+printf "| %-*s | Size (MB)  | Est. Monthly Cost |\n" $MAX_LOG_LENGTH "Log Group Name"
+printf "+%*s+------------+------------------+\n" $MAX_LOG_LENGTH | tr ' ' '-'
 
 # Get log groups with size data and estimate costs
 aws logs describe-log-groups --region $REGION $PROFILE \
@@ -134,7 +144,7 @@ aws logs describe-log-groups --region $REGION $PROFILE \
     --output text | \
     sort -k2 -nr | \
     head -20 | \
-    awk '{
+    awk -v max_len="$MAX_LOG_LENGTH" '{
         size_mb = $2/1024/1024
         # Estimate: $0.50 per GB ingested + $0.03 per GB stored per month
         size_gb = size_mb/1024
@@ -142,5 +152,8 @@ aws logs describe-log-groups --region $REGION $PROFILE \
         # Assume 30 days of ingestion at current rate
         ingestion_cost = size_gb * 0.50
         total_cost = storage_cost + ingestion_cost
-        printf "%-49s | %10.2f | $%.2f\n", $1, size_mb, total_cost
+        printf "| %-*s | %10.2f | $%-15.2f |\n", max_len, $1, size_mb, total_cost
     }'
+
+# Close table
+printf "+%*s+------------+------------------+\n" $MAX_LOG_LENGTH | tr ' ' '-'
