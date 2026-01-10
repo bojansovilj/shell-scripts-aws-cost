@@ -1,9 +1,286 @@
-# shell-scripts-aws-cost
+# AWS Cost Analysis Shell Scripts
 
-This repo contains shell scripts that are using AWS cli call to access costs for various AWS services:
+A collection of bash scripts to analyze AWS service costs and usage metrics using AWS CLI. These scripts provide detailed cost breakdowns, usage statistics, and optimization recommendations for various AWS services.
 
-/sqs/check_sqs_metrics.sh - this is for number of messages sent to sqs
-/glue/check_glue_costs.sh - this checks AWS Glue job costs and identifies most expensive jobs
-/lambda/check_lambda_costs.sh - this checks AWS Lambda function costs and execution metrics
-/cloudwatch/check_cloudwatch_costs.sh - this checks AWS CloudWatch costs and usage breakdown
-/natgateway/check_natgateway_costs.sh - this checks AWS NAT Gateway costs and data transfer
+## Prerequisites
+
+### 1. Install AWS CLI
+```bash
+# macOS
+brew install awscli
+
+# Linux
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Verify installation
+aws --version
+```
+
+### 2. Configure AWS Credentials
+```bash
+# Configure default profile
+aws configure
+
+# Or configure named profile
+aws configure --profile my-profile
+```
+
+### 3. Required AWS Permissions
+Ensure your AWS user/role has the following permissions:
+- `ce:GetCostAndUsage` (Cost Explorer)
+- `cloudwatch:GetMetricStatistics`
+- Service-specific read permissions (e.g., `lambda:ListFunctions`, `s3:ListBuckets`)
+
+### 4. Make Scripts Executable
+```bash
+# Clone the repository
+git clone <repository-url>
+cd shell-scripts-aws-cost
+
+# Make all scripts executable
+chmod +x */*.sh
+
+# Or make individual scripts executable
+chmod +x lambda/check_lambda_costs.sh
+chmod +x s3/check_s3_costs.sh
+# ... etc
+```
+
+## Available Scripts
+
+| Script | Purpose | Key Metrics |
+|--------|---------|-------------|
+| `sqs/check_sqs_metrics.sh` | SQS queue analysis | Messages sent, queue depth |
+| `lambda/check_lambda_costs.sh` | Lambda function costs | Invocations, duration, memory usage |
+| `glue/check_glue_costs.sh` | Glue job costs | Job runs, execution time, DPU usage |
+| `s3/check_s3_costs.sh` | S3 storage costs | Bucket sizes, storage classes |
+| `cloudwatch/check_cloudwatch_costs.sh` | CloudWatch costs | Alarms, dashboards, log groups |
+| `natgateway/check_natgateway_costs.sh` | NAT Gateway costs | Data transfer, hourly charges |
+| `datatransfer/check_datatransfer_costs.sh` | Data transfer costs | Cross-region, internet transfers |
+
+## Usage
+
+All scripts follow the same usage pattern:
+
+```bash
+# Basic usage (uses default AWS profile and region)
+./service/check_service_costs.sh
+
+# Specify region
+./service/check_service_costs.sh us-west-2
+
+# Use specific AWS profile
+./service/check_service_costs.sh --profile my-profile
+
+# Use specific profile and region
+./service/check_service_costs.sh --profile my-profile us-east-1
+```
+
+## Detailed Usage Examples
+
+### 1. Lambda Cost Analysis
+
+```bash
+# Run Lambda cost analysis
+./lambda/check_lambda_costs.sh --profile production us-east-1
+```
+
+**Sample Output:**
+```
+Lambda Function Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $45.67
+
++----------------------------------+----------+-------+---------------+----------------+-------------+
+| Function Name                    | Memory   | Runs  | Avg Duration  | Total Duration | Est. Price  |
++----------------------------------+----------+-------+---------------+----------------+-------------+
+| data-processor                   | 512MB    | 1250  | 2340ms        | 2925000ms      | $24.35      |
+| api-handler                      | 256MB    | 8900  | 150ms         | 1335000ms      | $12.89      |
+| scheduled-backup                 | 1024MB   | 30    | 45000ms       | 1350000ms      | $8.43       |
++----------------------------------+----------+-------+---------------+----------------+-------------+
+```
+
+**What it shows:**
+- Actual costs from AWS Cost Explorer
+- Function memory allocation
+- Number of invocations
+- Average and total execution duration
+- Estimated cost breakdown per function
+
+### 2. S3 Storage Analysis
+
+```bash
+# Analyze S3 costs
+./s3/check_s3_costs.sh --profile production
+```
+
+**Sample Output:**
+```
+S3 Cost Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total S3 Cost from Cost Explorer: $127.45
+
+S3 Cost Breakdown by Usage Type:
+--------------------------------
+USE1-TimedStorage-Standard                       $89.2340
+USE1-Requests-Tier1                              $12.4500
+USE1-DataTransfer-Out-Bytes                      $25.7660
+
+S3 Buckets Analysis:
+====================
++----------------------------------------+---------------+---------------+------------------+
+| Bucket Name                            | Size (GB)     | Objects       | Est. Monthly Cost |
++----------------------------------------+---------------+---------------+------------------+
+| company-data-lake                      | 3847.23       | 125000        | $88.49           |
+| application-logs                       | 892.45        | 45000         | $20.53           |
+| backup-storage                         | 234.67        | 8900          | $5.40            |
++----------------------------------------+---------------+---------------+------------------+
+```
+
+**What it shows:**
+- Total S3 costs from Cost Explorer
+- Cost breakdown by usage type (storage, requests, data transfer)
+- Individual bucket analysis with size and estimated costs
+- Storage optimization recommendations
+
+### 3. Glue Job Analysis
+
+```bash
+# Check Glue job costs
+./glue/check_glue_costs.sh us-west-2
+```
+
+**Sample Output:**
+```
+Glue Job Analysis - Region: us-west-2 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $234.56
+
++----------------------------------+----------+-------+---------------+----------------+-------------+
+| Job Name                         | Capacity | Runs  | Last Duration | Total Duration | Est. Price  |
++----------------------------------+----------+-------+---------------+----------------+-------------+
+| etl-daily-processing             | 10       | 31    | 3600s         | 111600s        | $93.00      |
+| data-transformation              | 5        | 15    | 2400s         | 36000s         | $45.00      |
+| weekly-aggregation               | 20       | 4     | 7200s         | 28800s         | $96.00      |
++----------------------------------+----------+-------+---------------+----------------+-------------+
+```
+
+**What it shows:**
+- Glue job capacity (DPU allocation)
+- Number of job runs in the last month
+- Execution duration statistics
+- Cost estimates based on DPU-hours
+
+### 4. CloudWatch Cost Analysis
+
+```bash
+# Analyze CloudWatch costs
+./cloudwatch/check_cloudwatch_costs.sh --profile monitoring
+```
+
+**Sample Output:**
+```
+CloudWatch Cost Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $67.89
+
+Quick Usage Summary:
+-------------------
+Alarms (first 100): 45
+Dashboards: 8
+Log Groups (first 50): 23
+
+Cost Breakdown by Usage Type:
+-----------------------------
+USE1-DataProcessing-Bytes                        $34.5600
+USE1-TimedStorage-ByteHrs                        $18.9900
+USE1-Requests                                     $14.3400
+
+Estimated Costs Based on Usage:
+-------------------------------
+Alarms: $4.50 (45 × $0.10)
+Dashboards: $24.00 (8 × $3.00)
+Log Groups: Variable cost based on ingestion and storage
+
+Log Groups by Data Volume (Top 20):
+====================================
++--------------------------------------------------+------------+------------------+
+| Log Group Name                                   | Size (MB)  | Est. Monthly Cost |
++--------------------------------------------------+------------+------------------+
+| /aws/lambda/api-handler                          |    2847.23 | $1.47            |
+| /aws/apigateway/access-logs                      |    1234.56 | $0.64            |
+| /aws/ecs/application                             |     892.34 | $0.46            |
++--------------------------------------------------+------------+------------------+
+```
+
+**What it shows:**
+- CloudWatch alarms, dashboards, and log groups count
+- Cost breakdown by usage type
+- Estimated costs for alarms and dashboards
+- Log groups sorted by data volume with cost estimates
+
+## Cost Optimization Tips
+
+### Lambda
+- Right-size memory allocation based on actual usage
+- Optimize function duration to reduce compute costs
+- Use provisioned concurrency only when necessary
+
+### S3
+- Implement lifecycle policies to move data to cheaper storage classes
+- Use S3 Intelligent Tiering for automatic optimization
+- Delete incomplete multipart uploads
+- Enable S3 Storage Class Analysis
+
+### Glue
+- Optimize job capacity based on actual requirements
+- Use job bookmarks to avoid reprocessing data
+- Consider using Glue Flex for variable workloads
+
+### CloudWatch
+- Review and remove unused alarms
+- Optimize log retention periods
+- Use log filtering to reduce ingestion costs
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Permission Denied**
+   ```bash
+   chmod +x script_name.sh
+   ```
+
+2. **AWS CLI Not Found**
+   ```bash
+   # Install AWS CLI (see Prerequisites)
+   aws --version
+   ```
+
+3. **No Cost Data**
+   - Ensure Cost Explorer is enabled in your AWS account
+   - Check if you have `ce:GetCostAndUsage` permission
+   - Verify the time period has actual usage
+
+4. **Region Not Found**
+   ```bash
+   # List available regions
+   aws ec2 describe-regions --query 'Regions[].RegionName' --output text
+   ```
+
+### Debug Mode
+
+Run scripts with debug output:
+```bash
+bash -x ./lambda/check_lambda_costs.sh
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add your improvements
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details
