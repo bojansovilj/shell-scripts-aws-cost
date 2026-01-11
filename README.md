@@ -31,7 +31,7 @@ aws configure --profile my-profile
 Ensure your AWS user/role has the following permissions:
 - `ce:GetCostAndUsage` (Cost Explorer)
 - `cloudwatch:GetMetricStatistics`
-- Service-specific read permissions (e.g., `lambda:ListFunctions`, `s3:ListBuckets`, `redshift:DescribeClusters`, `redshift:DescribeReservedNodes`, `ec2:DescribeInstances`, `ec2:DescribeReservedInstances`)
+- Service-specific read permissions (e.g., `lambda:ListFunctions`, `s3:ListBuckets`, `redshift:DescribeClusters`, `redshift:DescribeReservedNodes`, `ec2:DescribeInstances`, `ec2:DescribeReservedInstances`, `dynamodb:ListTables`, `dynamodb:DescribeTable`)
 
 ### 4. Make Scripts Executable
 ```bash
@@ -47,6 +47,7 @@ chmod +x lambda/check_lambda_costs.sh
 chmod +x s3/check_s3_costs.sh
 chmod +x redshift/check_redshift_costs.sh
 chmod +x ec2/check_ec2_costs.sh
+chmod +x dynamodb/check_dynamodb_costs.sh
 # ... etc
 ```
 
@@ -63,6 +64,7 @@ chmod +x ec2/check_ec2_costs.sh
 | `datatransfer/check_datatransfer_costs.sh` | Data transfer costs | Cross-region, internet transfers |
 | `redshift/check_redshift_costs.sh` | Redshift cluster costs | Node types, cluster status, backup storage, Reserved Instances |
 | `ec2/check_ec2_costs.sh` | EC2 instance costs | Instance types, states, Reserved Instances, EBS volumes |
+| `dynamodb/check_dynamodb_costs.sh` | DynamoDB table costs | Billing modes, capacity units, item counts |
 
 ## Usage
 
@@ -323,6 +325,13 @@ EC2 Instances Analysis:
 - Review and remove unused alarms
 - Optimize log retention periods
 - Use log filtering to reduce ingestion costs
+
+### DynamoDB
+- Use On-Demand billing for unpredictable workloads
+- Use Provisioned billing with Auto Scaling for predictable workloads
+- Implement efficient query patterns to reduce RCU/WCU consumption
+- Use Global Secondary Indexes (GSI) sparingly and optimize projections
+- Consider DynamoDB Standard-IA for infrequently accessed data
 
 ### EC2
 - Use Reserved Instances for predictable workloads (up to 72% savings)
