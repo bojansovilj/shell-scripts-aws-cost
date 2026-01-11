@@ -31,7 +31,7 @@ aws configure --profile my-profile
 Ensure your AWS user/role has the following permissions:
 - `ce:GetCostAndUsage` (Cost Explorer)
 - `cloudwatch:GetMetricStatistics`
-- Service-specific read permissions (e.g., `lambda:ListFunctions`, `s3:ListBuckets`)
+- Service-specific read permissions (e.g., `lambda:ListFunctions`, `s3:ListBuckets`, `redshift:DescribeClusters`, `redshift:DescribeReservedNodes`, `ec2:DescribeInstances`, `ec2:DescribeReservedInstances`)
 
 ### 4. Make Scripts Executable
 ```bash
@@ -45,6 +45,8 @@ chmod +x */*.sh
 # Or make individual scripts executable
 chmod +x lambda/check_lambda_costs.sh
 chmod +x s3/check_s3_costs.sh
+chmod +x redshift/check_redshift_costs.sh
+chmod +x ec2/check_ec2_costs.sh
 # ... etc
 ```
 
@@ -59,6 +61,8 @@ chmod +x s3/check_s3_costs.sh
 | `cloudwatch/check_cloudwatch_costs.sh` | CloudWatch costs | Alarms, dashboards, log groups |
 | `natgateway/check_natgateway_costs.sh` | NAT Gateway costs | Data transfer, hourly charges |
 | `datatransfer/check_datatransfer_costs.sh` | Data transfer costs | Cross-region, internet transfers |
+| `redshift/check_redshift_costs.sh` | Redshift cluster costs | Node types, cluster status, backup storage, Reserved Instances |
+| `ec2/check_ec2_costs.sh` | EC2 instance costs | Instance types, states, Reserved Instances, EBS volumes |
 
 ## Usage
 
@@ -217,6 +221,86 @@ Log Groups by Data Volume (Top 20):
 - Estimated costs for alarms and dashboards
 - Log groups sorted by data volume with cost estimates
 
+### 5. Redshift Cost Analysis
+
+```bash
+# Check Redshift cluster costs
+./redshift/check_redshift_costs.sh --profile production us-east-1
+```
+
+**Sample Output:**
+```
+Redshift Cluster Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $1,234.56
+
+Redshift Cost Breakdown by Usage Type:
+-------------------------------------
+USE1-Node-ra3.xlplus                            $789.2340
+USE1-ManagedStorage-ByteHrs                     $234.5600
+USE1-DataTransfer-Out-Bytes                     $210.7660
+
+Redshift Clusters Analysis:
+==========================
++----------------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+| Cluster Identifier               | Node Type     | Nodes | Status        | Created        | Est. Price  | RI Status   |
++----------------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+| production-cluster               | ra3.xlplus    | 3     | available     | 2024-01-15     | $1,175.00   | 1-year RI   |
+| analytics-cluster                | ra3.4xlarge   | 2     | available     | 2024-02-01     | $4,708.80   | On-Demand   |
++----------------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+
+Reserved Instances Summary:
+==========================
+|    NodeType    | NodeCount | OfferingType |  Duration  | FixedPrice | UsagePrice |
+|----------------|-----------|--------------|------------|------------|------------|
+|  ra3.xlplus    |     3     |   All Upfront|   31536000 |   9500.00  |    0.00    |
+```
+
+**What it shows:**
+- Actual costs from AWS Cost Explorer
+- Cost breakdown by usage type (compute, storage, data transfer)
+- Cluster details with node types and Reserved Instance status
+- Estimated costs with RI discounts applied when detected
+- Active Reserved Instances summary with pricing details
+- Backup storage and Spectrum usage information
+
+### 6. EC2 Cost Analysis
+
+```bash
+# Check EC2 instance costs
+./ec2/check_ec2_costs.sh --profile production us-east-1
+```
+
+**Sample Output:**
+```
+EC2 Instance Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $456.78
+
+EC2 Cost Breakdown by Usage Type:
+---------------------------------
+USE1-BoxUsage:t3.medium                         $89.2340
+USE1-BoxUsage:m5.large                          $234.5600
+USE1-EBS:VolumeUsage.gp2                        $45.7800
+
+EC2 Instances Analysis:
+======================
++-------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+| Instance ID             | Instance Type | State | AZ            | Launch Time    | Est. Price  | RI Status   |
++-------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+| i-1234567890abcdef0     | t3.medium     | running| us-east-1a   | 2024-01-15     | $29.95      | On-Demand   |
+| i-0987654321fedcba0     | m5.large      | running| us-east-1b   | 2024-01-10     | $69.12      | Standard RI |
++-------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+```
+
+**What it shows:**
+- Actual EC2 costs from Cost Explorer
+- Cost breakdown by usage type (instance hours, EBS storage)
+- Instance details with types, states, and Reserved Instance status
+- **Estimated prices assume 24/7 On-Demand usage for full month (720 hours)**
+- RI discounts applied when Reserved Instances are detected
+- Additional components like EBS volumes and Elastic IPs
+
+**Important Note:** The estimated prices shown are calculated assuming instances run 24/7 for a full month. If your instances run only several hours daily or are stopped/started frequently, your actual costs will be significantly lower than the estimates shown.
+
 ## Cost Optimization Tips
 
 ### Lambda
@@ -239,6 +323,20 @@ Log Groups by Data Volume (Top 20):
 - Review and remove unused alarms
 - Optimize log retention periods
 - Use log filtering to reduce ingestion costs
+
+### EC2
+- Use Reserved Instances for predictable workloads (up to 72% savings)
+- Consider Spot Instances for fault-tolerant workloads (up to 90% savings)
+- Right-size instances based on actual CPU and memory usage
+- Stop instances during non-business hours when possible
+- Release unassociated Elastic IP addresses
+
+### Redshift
+- Use Reserved Instances for predictable workloads (up to 75% savings)
+- Consider pausing clusters during non-business hours
+- Use RA3 nodes with managed storage for better cost efficiency
+- Monitor and optimize query performance to reduce compute time
+- Use Redshift Spectrum for infrequently accessed data
 
 ## Troubleshooting
 
