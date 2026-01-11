@@ -303,6 +303,199 @@ EC2 Instances Analysis:
 
 **Important Note:** The estimated prices shown are calculated assuming instances run 24/7 for a full month. If your instances run only several hours daily or are stopped/started frequently, your actual costs will be significantly lower than the estimates shown.
 
+### 7. DynamoDB Cost Analysis
+
+```bash
+# Check DynamoDB table costs
+./dynamodb/check_dynamodb_costs.sh --profile production us-east-1
+```
+
+**Sample Output:**
+```
+DynamoDB Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $89.34
+
+DynamoDB Cost Breakdown by Usage Type:
+-------------------------------------
+USE1-TimedStorage-ByteHrs                       $34.5600
+USE1-WriteRequestUnits                           $28.9900
+USE1-ReadRequestUnits                            $25.7800
+
+DynamoDB Tables Analysis:
+========================
++----------------------------------+---------------+-------+---------------+----------------+-------------+
+| Table Name                       | Billing Mode  | Status| Read/Write    | Item Count     | Est. Price  |
++----------------------------------+---------------+-------+---------------+----------------+-------------+
+| user-sessions                    | PAY_PER_REQUEST| ACTIVE| On-Demand     | 2.5M           | $3.12       |
+| product-catalog                  | PROVISIONED   | ACTIVE| 100R/50W      | 450.0K         | $56.16      |
+| analytics-events                 | PAY_PER_REQUEST| ACTIVE| On-Demand     | 12.8M          | $16.00      |
++----------------------------------+---------------+-------+---------------+----------------+-------------+
+```
+
+**What it shows:**
+- Actual DynamoDB costs from Cost Explorer
+- Cost breakdown by usage type (storage, read/write requests)
+- Table details with billing modes and capacity settings
+- Estimated costs for both Provisioned and On-Demand tables
+- Item counts and table status information
+- Global Tables and backup information
+
+### 8. NAT Gateway Cost Analysis
+
+```bash
+# Check NAT Gateway costs
+./natgateway/check_natgateway_costs.sh --profile production us-east-1
+```
+
+**Sample Output:**
+```
+NAT Gateway Cost Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $67.89
+
+NAT Gateway Cost Breakdown:
+--------------------------
+Hourly charges: $45.00 (1 gateway × $0.045/hour × 720 hours)
+Data processing: $22.89 (458.2 GB processed × $0.045/GB)
+
+NAT Gateways Analysis:
+=====================
++-------------------------+---------------+-------+---------------+----------------+
+| NAT Gateway ID          | Subnet        | State | AZ            | Est. Price     |
++-------------------------+---------------+-------+---------------+----------------+
+| nat-1234567890abcdef0   | subnet-abc123 | available | us-east-1a | $45.00/month   |
++-------------------------+---------------+-------+---------------+----------------+
+```
+
+**What it shows:**
+- Actual NAT Gateway costs from Cost Explorer
+- Breakdown of hourly charges vs data processing costs
+- NAT Gateway details with availability zones
+- Data transfer volume and associated costs
+
+### 9. Data Transfer Cost Analysis
+
+```bash
+# Check data transfer costs
+./datatransfer/check_datatransfer_costs.sh --profile production
+```
+
+**Sample Output:**
+```
+Data Transfer Cost Analysis (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $234.56
+
+Data Transfer Cost Breakdown:
+----------------------------
+DataTransfer-Out-Bytes                          $156.7800
+DataTransfer-Regional-Bytes                     $45.2300
+DataTransfer-In-Bytes                           $0.0000
+CloudFront-Out-Bytes                            $32.5500
+
+Top Data Transfer Sources:
+=========================
+- Internet egress: 1.2 TB ($156.78)
+- Cross-region transfers: 905 GB ($45.23)
+- CloudFront distribution: 2.1 TB ($32.55)
+```
+
+**What it shows:**
+- Total data transfer costs across all services
+- Breakdown by transfer type (internet, regional, CloudFront)
+- Volume of data transferred and associated costs
+- Identification of major data transfer sources
+
+### 10. SQS Metrics Analysis
+
+```bash
+# Check SQS queue metrics
+./sqs/check_sqs_metrics.sh --profile production us-east-1
+```
+
+**Sample Output:**
+```
+SQS Queue Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+
+SQS Queues Analysis:
+===================
++----------------------------------+----------+-------+---------------+----------------+
+| Queue Name                       | Messages | Depth | Avg Depth     | Est. Requests  |
++----------------------------------+----------+-------+---------------+----------------+
+| order-processing-queue           | 125000   | 45    | 23.5          | 2.5M           |
+| notification-queue               | 89000    | 12    | 8.2           | 1.8M           |
+| dead-letter-queue                | 234      | 0     | 0.1           | 468            |
++----------------------------------+----------+-------+---------------+----------------+
+
+Cost Estimation:
+===============
+Total estimated requests: 4.3M
+Estimated monthly cost: $1.72 (4.3M requests × $0.40 per million)
+```
+
+**What it shows:**
+- Queue message volumes and depths
+- Average queue depth over time
+- Estimated request counts and associated costs
+- Queue performance metrics==============
++----------------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+| Cluster Identifier               | Node Type     | Nodes | Status        | Created        | Est. Price  | RI Status   |
++----------------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+| production-cluster               | ra3.xlplus    | 3     | available     | 2024-01-15     | $1,175.00   | 1-year RI   |
+| analytics-cluster                | ra3.4xlarge   | 2     | available     | 2024-02-01     | $4,708.80   | On-Demand   |
++----------------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+
+Reserved Instances Summary:
+==========================
+|    NodeType    | NodeCount | OfferingType |  Duration  | FixedPrice | UsagePrice |
+|----------------|-----------|--------------|------------|------------|------------|
+|  ra3.xlplus    |     3     |   All Upfront|   31536000 |   9500.00  |    0.00    |
+```
+
+**What it shows:**
+- Actual costs from AWS Cost Explorer
+- Cost breakdown by usage type (compute, storage, data transfer)
+- Cluster details with node types and Reserved Instance status
+- Estimated costs with RI discounts applied when detected
+- Active Reserved Instances summary with pricing details
+- Backup storage and Spectrum usage information
+
+### 6. EC2 Cost Analysis
+
+```bash
+# Check EC2 instance costs
+./ec2/check_ec2_costs.sh --profile production us-east-1
+```
+
+**Sample Output:**
+```
+EC2 Instance Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $456.78
+
+EC2 Cost Breakdown by Usage Type:
+---------------------------------
+USE1-BoxUsage:t3.medium                         $89.2340
+USE1-BoxUsage:m5.large                          $234.5600
+USE1-EBS:VolumeUsage.gp2                        $45.7800
+
+EC2 Instances Analysis:
+======================
++-------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+| Instance ID             | Instance Type | State | AZ            | Launch Time    | Est. Price  | RI Status   |
++-------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+| i-1234567890abcdef0     | t3.medium     | running| us-east-1a   | 2024-01-15     | $29.95      | On-Demand   |
+| i-0987654321fedcba0     | m5.large      | running| us-east-1b   | 2024-01-10     | $69.12      | Standard RI |
++-------------------------+---------------+-------+---------------+----------------+-------------+-------------+
+```
+
+**What it shows:**
+- Actual EC2 costs from Cost Explorer
+- Cost breakdown by usage type (instance hours, EBS storage)
+- Instance details with types, states, and Reserved Instance status
+- **Estimated prices assume 24/7 On-Demand usage for full month (720 hours)**
+- RI discounts applied when Reserved Instances are detected
+- Additional components like EBS volumes and Elastic IPs
+
+**Important Note:** The estimated prices shown are calculated assuming instances run 24/7 for a full month. If your instances run only several hours daily or are stopped/started frequently, your actual costs will be significantly lower than the estimates shown.
+
 ## Cost Optimization Tips
 
 ### Lambda
