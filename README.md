@@ -56,13 +56,14 @@ chmod +x kinesis/check_kinesis_costs.sh
 
 | Script | Purpose | Key Metrics |
 |--------|---------|-------------|
-| `sqs/check_sqs_metrics.sh` | SQS queue analysis | Messages sent, queue depth |
+| `sqs/check_sqs_costs.sh` | SQS queue analysis | Messages sent, queue depth, cost estimation |
 | `lambda/check_lambda_costs.sh` | Lambda function costs | Invocations, duration, memory usage |
 | `glue/check_glue_costs.sh` | Glue job costs | Job runs, execution time, DPU usage |
 | `s3/check_s3_costs.sh` | S3 storage costs | Bucket sizes, storage classes |
 | `cloudwatch/check_cloudwatch_costs.sh` | CloudWatch costs | Alarms, dashboards, log groups |
 | `natgateway/check_natgateway_costs.sh` | NAT Gateway costs | Data transfer, hourly charges |
 | `datatransfer/check_datatransfer_costs.sh` | Data transfer costs | Cross-region, internet transfers |
+| `vpc/check_vpc_costs.sh` | VPC infrastructure costs | NAT Gateways, VPC Endpoints, Elastic IPs |
 | `redshift/check_redshift_costs.sh` | Redshift cluster costs | Node types, cluster status, backup storage, Reserved Instances |
 | `ec2/check_ec2_costs.sh` | EC2 instance costs | Instance types, states, Reserved Instances, EBS volumes |
 | `dynamodb/check_dynamodb_costs.sh` | DynamoDB table costs | Billing modes, capacity units, item counts |
@@ -224,6 +225,64 @@ Log Groups by Data Volume (Top 20):
 - Cost breakdown by usage type
 - Estimated costs for alarms and dashboards
 - Log groups sorted by data volume with cost estimates
+
+### 5. VPC Cost Analysis
+
+```bash
+# Check VPC infrastructure costs
+./vpc/check_vpc_costs.sh --profile production us-east-1
+```
+
+**Sample Output:**
+```
+VPC Cost Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total VPC Cost from Cost Explorer: $89.45
+
+VPC Cost Breakdown by Usage Type:
+--------------------------------
+USE1-NatGateway-Hours                            $32.4000
+USE1-NatGateway-Bytes                            $28.7500
+USE1-VpcEndpoint-Hours                           $14.4000
+USE1-ElasticIP:IdleAddress                       $10.8000
+
+VPC Resources Analysis:
+======================
+
+NAT Gateways:
+-------------
++-------------------------+---------------+-------+---------------+----------------+
+| NAT Gateway ID          | Subnet        | State | AZ            | Est. Price     |
++-------------------------+---------------+-------+---------------+----------------+
+| nat-1234567890abcdef0   | subnet-abc123 | available | us-east-1a | $32.40/month   |
++-------------------------+---------------+-------+---------------+----------------+
+
+VPC Endpoints:
+--------------
++-------------------------+---------------+-------+---------------+----------------+
+| VPC Endpoint ID         | Service       | Type  | State         | Est. Price     |
++-------------------------+---------------+-------+---------------+----------------+
+| vpce-1234567890abcdef0  | s3            | Gateway| available     | $0.00/month    |
+| vpce-0987654321fedcba0  | ec2           | Interface| available   | $7.20/month    |
++-------------------------+---------------+-------+---------------+----------------+
+
+Elastic IP Addresses:
+---------------------
++-------------------------+---------------+-------+---------------+
+| Allocation ID           | Public IP     | State | Instance/NAT  |
++-------------------------+---------------+-------+---------------+
+| eipalloc-1234567890abc  | 54.123.45.67  | in-use| i-1234567890  |
+| eipalloc-0987654321fed  | 52.98.76.54   | available| unassociated |
++-------------------------+---------------+-------+---------------+
+```
+
+**What it shows:**
+- Total VPC costs from Cost Explorer
+- Cost breakdown by usage type (NAT Gateway, VPC Endpoints, Elastic IPs)
+- NAT Gateway details with availability zones and estimated costs
+- VPC Endpoints with service types and pricing
+- Elastic IP addresses and their association status
+- VPC Peering connections and Internet Gateways
+- Unassociated Elastic IPs that are incurring charges
 
 ### 5. Redshift Cost Analysis
 
@@ -651,37 +710,41 @@ Top Data Transfer Sources:
 - Volume of data transferred and associated costs
 - Identification of major data transfer sources
 
-### 10. SQS Metrics Analysis
+### 10. SQS Cost Analysis
 
 ```bash
-# Check SQS queue metrics
-./sqs/check_sqs_metrics.sh --profile production us-east-1
+# Check SQS queue costs
+./sqs/check_sqs_costs.sh --profile production us-east-1
 ```
 
 **Sample Output:**
 ```
 SQS Queue Analysis - Region: us-east-1 (Last Month: 2024-01-01 to 2024-02-01)
+Actual Total Cost from Cost Explorer: $1.72
 
 SQS Queues Analysis:
 ===================
-+----------------------------------+----------+-------+---------------+----------------+
-| Queue Name                       | Messages | Depth | Avg Depth     | Est. Requests  |
-+----------------------------------+----------+-------+---------------+----------------+
-| order-processing-queue           | 125000   | 45    | 23.5          | 2.5M           |
-| notification-queue               | 89000    | 12    | 8.2           | 1.8M           |
-| dead-letter-queue                | 234      | 0     | 0.1           | 468            |
-+----------------------------------+----------+-------+---------------+----------------+
++----------------------------------+----------+-------+---------------+----------------+-------------+
+| Queue Name                       | Messages | Depth | Avg Depth     | Est. Requests  | Est. Price  |
++----------------------------------+----------+-------+---------------+----------------+-------------+
+| order-processing-queue           | 125000   | 45    | 23.5          | 400.0K         | $0.0000     |
+| notification-queue               | 89000    | 12    | 8.2           | 284.8K         | $0.0000     |
+| high-volume-queue                | 2500000  | 0     | 0.1           | 8.0M           | $2.80       |
++----------------------------------+----------+-------+---------------+----------------+-------------+
 
-Cost Estimation:
-===============
-Total estimated requests: 4.3M
-Estimated monthly cost: $1.72 (4.3M requests × $0.40 per million)
+Cost Estimation Summary:
+=======================
+Total estimated requests: 8.7M
+Estimated monthly cost: $2.80
+First 1M requests per month are free
 ```
 
 **What it shows:**
-- Queue message volumes and depths
+- Actual SQS costs from Cost Explorer
+- Queue message volumes and current depths
 - Average queue depth over time
-- Estimated request counts and associated costs
+- Estimated API requests (including polling overhead)
+- Cost estimates with free tier consideration
 - Queue performance metrics
 
 ## Cost Optimization Tips
@@ -706,6 +769,13 @@ Estimated monthly cost: $1.72 (4.3M requests × $0.40 per million)
 - Review and remove unused alarms
 - Optimize log retention periods
 - Use log filtering to reduce ingestion costs
+
+### VPC
+- Remove unassociated Elastic IP addresses ($3.60/month each)
+- Use Gateway VPC endpoints instead of Interface endpoints when possible
+- Consolidate NAT Gateways if traffic is low
+- Monitor data transfer costs through NAT Gateways
+- Review and remove unused VPC peering connections
 
 ### Kinesis
 - Right-size the number of shards based on actual throughput needs
