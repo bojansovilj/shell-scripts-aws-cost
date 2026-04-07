@@ -127,33 +127,55 @@ echo "Log Groups by Data Volume (Top 20):"
 echo "===================================="
 
 # Find longest log group name for formatting
-MAX_LOG_LENGTH=$(aws logs describe-log-groups --region $REGION $PROFILE --query 'logGroups[*].logGroupName' --output text | tr '\t' '\n' | awk '{if(length > max) max = length} END {print max+5}')
+MAX_LOG_LENGTH=$(aws logs describe-log-groups --region "$REGION" $PROFILE --query 'logGroups[*].logGroupName' --output text | tr '\t' '\n' | awk '{if(length > max) max = length} END {print max+5}')
 
 if [ -z "$MAX_LOG_LENGTH" ] || [ "$MAX_LOG_LENGTH" -lt 30 ]; then
     MAX_LOG_LENGTH=50
 fi
 
-# Create table header
-printf "+%*s+------------+------------------+\n" $MAX_LOG_LENGTH | tr ' ' '-'
-printf "| %-*s | Size (MB)  | Est. Monthly Cost |\n" $MAX_LOG_LENGTH "Log Group Name"
-printf "+%*s+------------+------------------+\n" $MAX_LOG_LENGTH | tr ' ' '-'
+# Get log groups with size data and estimate costs (storage + ingestion)
+printf "+%*s+------------+---------------+---------------+------------------+\n" "$MAX_LOG_LENGTH" "" | tr ' ' '-'
+printf "| %-*s | Size (MB)  | Storage Cost  | Ingest Cost   | Est. Total Cost  |\n" "$MAX_LOG_LENGTH" "Log Group Name"
+printf "+%*s+------------+---------------+---------------+------------------+\n" "$MAX_LOG_LENGTH" "" | tr ' ' '-'
 
-# Get log groups with size data and estimate costs
-aws logs describe-log-groups --region $REGION $PROFILE \
+# Get top 20 log groups by stored bytes
+TOP_LOG_GROUPS=$(aws logs describe-log-groups --region "$REGION" $PROFILE \
     --query 'logGroups[*].[logGroupName,storedBytes]' \
     --output text | \
     sort -k2 -nr | \
-    head -20 | \
-    awk -v max_len="$MAX_LOG_LENGTH" '{
-        size_mb = $2/1024/1024
-        # Estimate: $0.50 per GB ingested + $0.03 per GB stored per month
-        size_gb = size_mb/1024
-        storage_cost = size_gb * 0.03
-        # Assume 30 days of ingestion at current rate
-        ingestion_cost = size_gb * 0.50
-        total_cost = storage_cost + ingestion_cost
-        printf "| %-*s | %10.2f | $%-15.2f |\n", max_len, $1, size_mb, total_cost
-    }'
+    head -20)
+
+while IFS=$'\t' read -r LOG_GROUP STORED_BYTES; do
+    # Storage cost: $0.03/GB/month on storedBytes
+    STORAGE_COST=$(echo "$STORED_BYTES" | awk '{printf "%.4f", $1/1024/1024/1024 * 0.03}')
+
+    # Ingestion: sum daily IncomingBytes over last month via CloudWatch Metrics
+    INCOMING_BYTES=$(aws cloudwatch get-metric-statistics \
+        --region "$REGION" $PROFILE \
+        --namespace "AWS/Logs" \
+        --metric-name "IncomingBytes" \
+        --dimensions "Name=LogGroupName,Value=${LOG_GROUP}" \
+        --start-time "${LAST_MONTH_START}T00:00:00Z" \
+        --end-time "${LAST_MONTH_END}T00:00:00Z" \
+        --period 86400 \
+        --statistics Sum \
+        --query 'sum(Datapoints[*].Sum)' \
+        --output text 2>/dev/null)
+
+    if [ -z "$INCOMING_BYTES" ] || [ "$INCOMING_BYTES" = "None" ] || [ "$INCOMING_BYTES" = "null" ]; then
+        INCOMING_BYTES=0
+    fi
+
+    # Ingestion cost: $0.50/GB ingested
+    INGEST_COST=$(echo "$INCOMING_BYTES" | awk '{printf "%.4f", $1/1024/1024/1024 * 0.50}')
+
+    # Total
+    TOTAL_COST=$(echo "$STORAGE_COST $INGEST_COST" | awk '{printf "%.2f", $1 + $2}')
+    SIZE_MB=$(echo "$STORED_BYTES" | awk '{printf "%.2f", $1/1024/1024}')
+
+    printf "| %-*s | %10s | $%-13s | $%-13s | $%-15s |\n" \
+        "$MAX_LOG_LENGTH" "$LOG_GROUP" "$SIZE_MB" "$STORAGE_COST" "$INGEST_COST" "$TOTAL_COST"
+done <<< "$TOP_LOG_GROUPS"
 
 # Close table
-printf "+%*s+------------+------------------+\n" $MAX_LOG_LENGTH | tr ' ' '-'
+printf "+%*s+------------+---------------+---------------+------------------+\n" "$MAX_LOG_LENGTH" "" | tr ' ' '-'
